@@ -533,7 +533,26 @@
         let isLockedOut = false;
         let preferredVoice = null;
         let isAnimating = false;
-        let winMusicTrack = null; 
+        let winMusicTrack = new Audio('win_music.mp3');
+        winMusicTrack.loop = true;
+        winMusicTrack.volume = 0.45;
+        winMusicTrack.preload = 'auto';
+
+        /* iPad/iOS only lets audio start from a real tap, so "unlock" the music element on the first tap/click */
+        (function() {
+            let unlocked = false;
+            function unlockWinMusic() {
+                if (unlocked) return;
+                unlocked = true;
+                winMusicTrack.muted = true;
+                const p = winMusicTrack.play();
+                const done = () => { winMusicTrack.pause(); winMusicTrack.currentTime = 0; winMusicTrack.muted = false; };
+                if (p && p.then) p.then(done).catch(() => { unlocked = false; winMusicTrack.muted = false; });
+                else done();
+                ['touchend', 'click', 'mouseup'].forEach(ev => document.removeEventListener(ev, unlockWinMusic, true));
+            }
+            ['touchend', 'click', 'mouseup'].forEach(ev => document.addEventListener(ev, unlockWinMusic, true));
+        })();
         
         let categoryStats = {
             who: { correct: 0, incorrect: 0 },
@@ -684,9 +703,8 @@
                 winScreen.classList.remove('hidden');
                 document.body.style.backgroundColor = "#05060f"; 
                 
-                winMusicTrack = new Audio('win_music.mp3');
-                winMusicTrack.loop = true;
-                winMusicTrack.volume = 0.45;
+                winMusicTrack.muted = false;
+                winMusicTrack.currentTime = 0;
                 winMusicTrack.play().catch(err => console.log("Autoplay prevented:", err));
 
                 const finalAccuracy = Math.round((score / imageData.length) * 100);
@@ -962,7 +980,7 @@
             
             if (winMusicTrack) {
                 winMusicTrack.pause();
-                winMusicTrack = null;
+                winMusicTrack.currentTime = 0;
             }
 
             currentIndex = 0; score = 0; comboCount = 0; itemIncorrectCount = 0; isLockedOut = false;
