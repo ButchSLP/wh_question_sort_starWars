@@ -471,6 +471,7 @@
                 <p>Incorrect: <span id="what-incorrect" class="val-incorrect">0</span></p>
             </div>
         </div>
+        <button id="music-btn" class="hidden" onclick="tapForMusic()" style="background:#c9a400; box-shadow: 0 6px 0 #7a5a00;">🔊 Tap for music</button>
         <button onclick="resetGame()">Play Again</button>
     </div>
 
@@ -540,19 +541,39 @@
 
         /* iPad/iOS only lets audio start from a real tap, so "unlock" the music element on the first tap/click */
         (function() {
-            let unlocked = false;
+            let unlocked = false, trying = false;
+            const evs = ['touchend', 'pointerup', 'click', 'mouseup'];
             function unlockWinMusic() {
-                if (unlocked) return;
-                unlocked = true;
+                if (unlocked || trying) return;
+                trying = true;
                 winMusicTrack.muted = true;
                 const p = winMusicTrack.play();
-                const done = () => { winMusicTrack.pause(); winMusicTrack.currentTime = 0; winMusicTrack.muted = false; };
-                if (p && p.then) p.then(done).catch(() => { unlocked = false; winMusicTrack.muted = false; });
-                else done();
-                ['touchend', 'click', 'mouseup'].forEach(ev => document.removeEventListener(ev, unlockWinMusic, true));
+                const finish = () => {
+                    winMusicTrack.pause(); winMusicTrack.currentTime = 0; winMusicTrack.muted = false;
+                    unlocked = true; trying = false;
+                    evs.forEach(ev => document.removeEventListener(ev, unlockWinMusic, true));
+                };
+                const fail = () => { winMusicTrack.muted = false; trying = false; }; /* keep listening, try again on next tap */
+                if (p && p.then) p.then(finish).catch(fail); else finish();
             }
-            ['touchend', 'click', 'mouseup'].forEach(ev => document.addEventListener(ev, unlockWinMusic, true));
+            evs.forEach(ev => document.addEventListener(ev, unlockWinMusic, true));
         })();
+
+        /* Fallback: if the browser still blocks the win music, show a tap-to-play button */
+        function startWinMusic() {
+            const btn = document.getElementById('music-btn');
+            winMusicTrack.muted = false;
+            winMusicTrack.currentTime = 0;
+            const p = winMusicTrack.play();
+            if (p && p.then) {
+                p.then(() => { btn.classList.add('hidden'); })
+                 .catch(() => { btn.classList.remove('hidden'); });
+            }
+        }
+        function tapForMusic() {
+            winMusicTrack.muted = false;
+            winMusicTrack.play().then(() => document.getElementById('music-btn').classList.add('hidden')).catch(() => {});
+        }
         
         let categoryStats = {
             who: { correct: 0, incorrect: 0 },
@@ -703,9 +724,7 @@
                 winScreen.classList.remove('hidden');
                 document.body.style.backgroundColor = "#05060f"; 
                 
-                winMusicTrack.muted = false;
-                winMusicTrack.currentTime = 0;
-                winMusicTrack.play().catch(err => console.log("Autoplay prevented:", err));
+                startWinMusic();
 
                 const finalAccuracy = Math.round((score / imageData.length) * 100);
                 document.getElementById('win-percentage').innerText = `${finalAccuracy}% Correct`;
@@ -982,6 +1001,7 @@
                 winMusicTrack.pause();
                 winMusicTrack.currentTime = 0;
             }
+            document.getElementById('music-btn').classList.add('hidden');
 
             currentIndex = 0; score = 0; comboCount = 0; itemIncorrectCount = 0; isLockedOut = false;
             categoryStats = { who: { correct: 0, incorrect: 0 }, where: { correct: 0, incorrect: 0 }, when: { correct: 0, incorrect: 0 }, what: { correct: 0, incorrect: 0 } };
