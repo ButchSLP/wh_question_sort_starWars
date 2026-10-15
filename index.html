@@ -536,7 +536,16 @@
         let isAnimating = false;
         let winMusicTrack = new Audio('win_music.mp3');
         winMusicTrack.loop = true;
-        winMusicTrack.volume = 0.45;
+        const WIN_MUSIC_VOLUME = 0.55; /* <-- MUSIC VOLUME: 0.0 (silent) to 1.0 (full). Note: iPads ignore this and use the iPad's own volume buttons. */
+        winMusicTrack.volume = WIN_MUSIC_VOLUME;
+        let winMusicWanted = false;
+        /* iPads pause web audio when the voice (speech) finishes - if that happens, restart the music */
+        winMusicTrack.addEventListener('pause', () => {
+            if (winMusicWanted) setTimeout(() => { if (winMusicWanted && winMusicTrack.paused) winMusicTrack.play().catch(() => {}); }, 250);
+        });
+        setInterval(() => {
+            if (winMusicWanted && winMusicTrack.paused) winMusicTrack.play().catch(() => {});
+        }, 700);
         winMusicTrack.preload = 'auto';
 
         /* iPad/iOS only lets audio start from a real tap, so "unlock" the music element on the first tap/click */
@@ -562,6 +571,7 @@
         /* Fallback: if the browser still blocks the win music, show a tap-to-play button */
         function startWinMusic() {
             const btn = document.getElementById('music-btn');
+            winMusicWanted = true;
             winMusicTrack.muted = false;
             winMusicTrack.currentTime = 0;
             const p = winMusicTrack.play();
@@ -571,6 +581,7 @@
             }
         }
         function tapForMusic() {
+            winMusicWanted = true;
             winMusicTrack.muted = false;
             winMusicTrack.play().then(() => document.getElementById('music-btn').classList.add('hidden')).catch(() => {});
         }
@@ -997,6 +1008,7 @@
         function resetGame() {
             if (typeof speechSynthesis !== 'undefined') window.speechSynthesis.cancel();
             
+            winMusicWanted = false;
             if (winMusicTrack) {
                 winMusicTrack.pause();
                 winMusicTrack.currentTime = 0;
